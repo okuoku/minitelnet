@@ -7,15 +7,20 @@ endif()
 
 set(srcs
     minitelnet.c
-    ${WITH_MINIIO}/src/miniio_${IO_BACKEND}.c
     libtelnet/libtelnet.c)
-
-add_executable(minitelnet ${srcs})
+if(MINITELNET_EMBEDDED)
+    add_library(minitelnet OBJECT ${srcs})
+    target_compile_definitions(minitelnet PRIVATE
+        MINITELNET_EMBEDDED=1)
+else()
+    list(APPEND ${WITH_MINIIO}/src/miniio_${IO_BACKEND}.c)
+    add_executable(minitelnet ${srcs})
+    if(${IO_BACKEND} STREQUAL uv)
+        if(uvlib)
+            target_link_libraries(minitelnet ${uvlib})
+        endif()
+    endif()
+endif()
 
 target_include_directories(minitelnet PRIVATE libtelnet ${WITH_MINIIO}/include)
 
-if(${IO_BACKEND} STREQUAL uv)
-    if(uvlib)
-        target_link_libraries(minitelnet ${uvlib})
-    endif()
-endif()

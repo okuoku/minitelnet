@@ -316,9 +316,12 @@ start_minitelnet(void){
     do_echo = 1;
     loopstate = LS_START;
 
+    tcgetattr(STDOUT_FILENO, &orig_tios); /* For leaving */
     mainloop();
 }
 
+
+#ifndef MINITELNET_EMBEDDED
 
 static void
 cleanup(void){
@@ -333,3 +336,5 @@ main(int ac, char** av){
     start_minitelnet();
     return 0;
 }
+
+#endif
