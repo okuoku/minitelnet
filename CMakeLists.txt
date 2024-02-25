@@ -23,4 +23,3 @@ else()
 endif()
 
 target_include_directories(minitelnet PRIVATE libtelnet ${WITH_MINIIO}/include)
-

@@ -2,11 +2,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifndef MINITELNET_SILENT
 #include <unistd.h>
 #include <sys/ioctl.h>
 #include <termios.h>
 #include <pthread.h>
 #include <errno.h>
+#endif
 
 #include "libtelnet.h"
 
@@ -18,7 +21,9 @@ static void* conn_sock = 0;
 static void* chime_data = 0;
 static void* chime_wndsize = 0;
 
+#ifndef MINITELNET_SILENT
 static struct termios orig_tios;
+#endif
 static telnet_t* the_telnet;
 
 static int do_echo, wndx, wndy;
@@ -32,6 +37,10 @@ static const telnet_telopt_t telopts[] = {
 
 static void
 update_winsz(void){
+#ifdef MINITELNET_SILENT
+    wndx = 80;
+    wndy = 25;
+#else
     struct winsize ws;
     int r;
     r = ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws);
@@ -43,6 +52,7 @@ update_winsz(void){
         wndx = ws.ws_col;
         wndy = ws.ws_row;
     }
+#endif
     fprintf(stderr, "Wnd size = %d,%d\n", wndx, wndy);
 }
 
@@ -106,8 +116,10 @@ telnet_event(telnet_t* telnet, telnet_event_t* ev, void* bogus){
 #define SENDBUF_SIZE 128
 static char sendbuf[SENDBUF_SIZE];
 static int sendcnt;
+#ifndef MINITELNET_SILENT
 static pthread_mutex_t mtx_send;
 static pthread_cond_t cnd_send;
+#endif
 
 static void
 do_input(void){ /* LOCKED */
@@ -131,6 +143,7 @@ do_input(void){ /* LOCKED */
     }
 }
 
+#ifndef MINITELNET_SILENT
 static void*
 thr_reader(void* bogus){
     int r,e;
@@ -162,10 +175,12 @@ thr_reader(void* bogus){
     }
     return 0;
 }
+#endif
 
 
 static void
 minitelnet_startup(void){
+#ifndef MINITELNET_SILENT
     struct termios tios;
     pthread_t thr;
     /* Register signal handler */
@@ -180,6 +195,7 @@ minitelnet_startup(void){
     tios = orig_tios;
     cfmakeraw(&tios);
     tcsetattr(STDOUT_FILENO, TCSADRAIN, &tios);
+#endif
 
     the_telnet = telnet_init(telopts, telnet_event, 0, 0);
 }
@@ -242,7 +258,6 @@ mainloop(void){
                     switch(cev_code){
                         case MINIIO_EVT_NETRESOLVE:
                             sock = miniio_tcp_create(ctx, 0, 0, 0);
-                            // FIXME:
                             miniio_tcp_connect(ctx, sock, param, 0);
                             loopstate = LS_CONNECTING;
                             break;
@@ -281,6 +296,7 @@ mainloop(void){
                             miniio_buffer_unlock(ctx, buf);
                             break;
                         case MINIIO_EVT_CHIME:
+#ifndef MINITELNET_SILENT
                             ptr = (void*)cev_param[0];
                             if(ptr == chime_data){
                                 pthread_mutex_lock(&mtx_send);
@@ -294,6 +310,7 @@ mainloop(void){
                             }else{
                                 abort();
                             }
+#endif
                             break;
                         default:
                             break;
@@ -312,11 +329,13 @@ done:
 
 void
 start_minitelnet(void){
+#ifndef MINITELNET_SILENT
     struct termios tios;
-    do_echo = 1;
-    loopstate = LS_START;
 
     tcgetattr(STDOUT_FILENO, &orig_tios); /* For leaving */
+#endif
+    do_echo = 1;
+    loopstate = LS_START;
     mainloop();
 }
 
